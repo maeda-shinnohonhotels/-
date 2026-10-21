@@ -1,0 +1,1087 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>人事評価デスク</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: 帳場（フロント台帳）のような一枚台帳。上に要約、タブで「進捗／評価入力／運用チェック」を切替 */
+:root{
+  --bg:#F3F5F7; --surface:#FFFFFF; --sunk:#E9EDF1; --ink:#18212E; --muted:#5A6576; --line:#D7DDE5;
+  --accent:#24557F; --accent-soft:#DCE7F1; --brass:#9C7A33; --brass-soft:#F2EAD7;
+  --good:#2C7A57; --good-soft:#DDEFE5; --warn:#A8701A; --warn-soft:#F6EAD3; --crit:#B23A2E; --crit-soft:#F6DEDA;
+  --display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"Consolas",monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#12171E; --surface:#1A212B; --sunk:#232C38; --ink:#E6EBF1; --muted:#9AA6B6; --line:#2F3A48;
+  --accent:#7FB0DB; --accent-soft:#22364A; --brass:#D4B46E; --brass-soft:#3A3122;
+  --good:#6CC79B; --good-soft:#1E3A2E; --warn:#E3B062; --warn-soft:#3D2F1A; --crit:#EE8A7F; --crit-soft:#432522;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#12171E; --surface:#1A212B; --sunk:#232C38; --ink:#E6EBF1; --muted:#9AA6B6; --line:#2F3A48;
+  --accent:#7FB0DB; --accent-soft:#22364A; --brass:#D4B46E; --brass-soft:#3A3122;
+  --good:#6CC79B; --good-soft:#1E3A2E; --warn:#E3B062; --warn-soft:#3D2F1A; --crit:#EE8A7F; --crit-soft:#432522;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.7;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.35}
+h1{font-size:1.75rem;letter-spacing:.04em}
+h2{font-size:1.2rem}
+h3{font-size:1rem}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:6px 14px;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--crit)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+input[type=text],input[type=date],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:6px 10px;min-width:0}
+textarea{width:100%;resize:vertical;line-height:1.7}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted)}
+label.f > input, label.f > select{color:var(--ink)}
+
+/* header */
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;border-bottom:2px solid var(--ink);padding-bottom:14px}
+.cycle{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.eyebrow{font-size:.75rem;letter-spacing:.14em;color:var(--brass);font-weight:700}
+.banner{border:1px dashed var(--brass);background:var(--brass-soft);border-radius:var(--r);padding:10px 14px;font-size:.9rem}
+.banner[data-kind=info]{border-color:var(--line);background:var(--sunk)}
+
+/* summary */
+.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.tile .k{font-size:.78rem;color:var(--muted);letter-spacing:.06em}
+.tile .v{font-family:var(--mono);font-size:1.6rem;font-variant-numeric:tabular-nums;line-height:1.2}
+.tile .s{font-size:.8rem;color:var(--muted)}
+.tile.alert .v{color:var(--crit)}
+@media (max-width:720px){.summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.pipeline{display:flex;height:28px;border-radius:var(--r);overflow:hidden;background:var(--sunk)}
+.pipeline span{display:flex;align-items:center;justify-content:center;font-size:.75rem;white-space:nowrap;overflow:hidden;color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.8rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.st0{background:var(--sunk)} .st1{background:var(--accent-soft)} .st2{background:color-mix(in srgb,var(--accent) 35%,var(--surface))}
+.st3{background:color-mix(in srgb,var(--accent) 70%,var(--surface))} .st4{background:var(--good-soft)}
+.pipeline .st3{color:var(--surface)}
+.segtabs{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;flex-wrap:wrap}
+.segtabs button{border:0;border-left:1px solid var(--line);background:var(--surface);padding:6px 14px;font-weight:500;color:var(--muted)}
+.segtabs button:first-child{border-left:0}
+.segtabs button[aria-selected=true]{background:var(--accent);color:var(--surface)}
+
+/* tabs */
+nav.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+nav.tabs button{border:0;background:none;padding:10px 16px;border-bottom:3px solid transparent;color:var(--muted);font-weight:500;white-space:nowrap}
+nav.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+section.panel{display:flex;flex-direction:column;gap:20px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.grow{flex:1 1 180px}
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:860px){.split{grid-template-columns:minmax(0,1fr)}}
+
+/* tables */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:.75rem;letter-spacing:.06em;color:var(--muted);font-weight:500;background:var(--sunk)}
+tbody tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--accent-soft)}
+.chip{display:inline-block;padding:1px 9px;border-radius:999px;font-size:.75rem;font-weight:500;border:1px solid transparent}
+.chip.st0{border-color:var(--line)}
+.chip.st3{color:var(--surface)}
+.tag{display:inline-block;padding:0 7px;border-radius:4px;font-size:.72rem;font-weight:700;letter-spacing:.04em}
+.tag.warn{background:var(--warn-soft);color:var(--warn)}
+.tag.crit{background:var(--crit-soft);color:var(--crit)}
+.tag.ok{background:var(--good-soft);color:var(--good)}
+.tag.sample{background:var(--brass-soft);color:var(--brass)}
+.rank{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:4px;font-family:var(--display);font-weight:700;border:1px solid var(--line)}
+.rank.S{background:var(--brass-soft);color:var(--brass);border-color:var(--brass)}
+.rank.A{background:var(--accent-soft);color:var(--accent)}
+.rank.C{background:var(--warn-soft);color:var(--warn)}
+.rank.D{background:var(--crit-soft);color:var(--crit)}
+.stagebar{display:flex;width:120px;height:10px;border-radius:3px;overflow:hidden;background:var(--sunk)}
+
+/* eval form */
+.crit{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.crit:last-child{border-bottom:0}
+.crit .d{grid-column:1/-1;font-size:.8rem;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{width:38px;text-align:center;padding:4px 0;cursor:pointer;font-family:var(--mono);border-left:1px solid var(--line)}
+.seg label:first-of-type{border-left:0}
+.seg input:checked + label{background:var(--accent);color:var(--surface)}
+.seg input:focus-visible + label{outline:2px solid var(--accent);outline-offset:-2px}
+.scoreline{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.hint{font-size:.8rem;color:var(--muted)}
+.hint.warn{color:var(--warn)}
+.ai-out{white-space:pre-wrap}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+
+/* distribution */
+.dist{display:flex;flex-direction:column;gap:8px}
+.dist .r{display:grid;grid-template-columns:28px minmax(0,1fr) 92px;gap:10px;align-items:center}
+.dist .track{position:relative;height:18px;background:var(--sunk);border-radius:3px}
+.dist .bar{height:100%;background:var(--accent);border-radius:3px}
+.dist .guide{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--brass)}
+.issues{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.issues li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+ol.steps{margin:0;padding-left:1.4em;display:flex;flex-direction:column;gap:10px}
+ol.steps li::marker{font-family:var(--display);font-weight:700;color:var(--brass)}
+ol.steps b{display:block}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 18px;border-radius:var(--r);font-size:.9rem;z-index:20}
+details summary{cursor:pointer;color:var(--accent);font-weight:500}
+@media (prefers-reduced-motion:no-preference){.btn,nav.tabs button{transition:border-color .15s,color .15s}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">PERFORMANCE REVIEW DESK</div>
+      <h1>人事評価デスク</h1>
+    </div>
+    <div class="cycle">
+      <label class="f">評価期間<input type="text" id="cycleName" placeholder="例：2026年度 下期" style="width:11em"></label>
+      <label class="f">面談完了の締切<input type="date" id="cycleDeadline"></label>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" data-kind="info">評価データを読み込んでいます…</div>
+
+  <div class="summary" id="summary"></div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <div class="pipeline" id="pipeline" aria-label="ステータス別の人数"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-progress" aria-selected="true" data-tab="progress">進捗・集計</button>
+    <button role="tab" id="tab-eval" aria-selected="false" data-tab="eval">評価入力・コメント</button>
+    <button role="tab" id="tab-ops" aria-selected="false" data-tab="ops">運用チェック</button>
+  </nav>
+
+  <!-- 進捗・集計 -->
+  <section class="panel" id="panel-progress">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>部署別の進み具合</h2>
+        <span class="hint">平均点は全項目を採点済みの人のみで計算</span>
+      </div>
+      <div class="tw"><table>
+        <thead><tr><th>部署</th><th class="n">人数</th><th>進捗</th><th class="n">面談済</th><th class="n">平均点</th><th>ランク分布</th><th>傾向</th></tr></thead>
+        <tbody id="deptBody"></tbody>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>対象者一覧</h2>
+        <div class="row">
+          <button class="btn" id="copyBtn">表をExcel用にコピー</button>
+        </div>
+      </div>
+      <div class="segtabs" role="tablist" aria-label="評価者で絞り込み" id="evTabs"></div>
+      <div class="row">
+        <label class="f grow">氏名・従業員番号で検索<input type="text" id="q" placeholder="例：佐藤"></label>
+        <label class="f">部署<select id="fDept"></select></label>
+        <label class="f">ステータス<select id="fStatus"></select></label>
+      </div>
+      <div class="tw"><table>
+        <thead><tr><th>氏名</th><th>部署</th><th>役職</th><th>入社年月日</th><th class="n">勤続</th><th>評価者</th><th>ステータス</th><th class="n">平均</th><th>ランク</th><th>コメント</th></tr></thead>
+        <tbody id="staffBody"></tbody>
+      </table></div>
+      <textarea id="copyArea" rows="5" hidden readonly></textarea>
+    </div>
+
+    <div class="card" id="addCard">
+      <h2>対象者を追加</h2>
+      <div class="row">
+        <label class="f grow">氏名<input type="text" id="aName"></label>
+        <label class="f grow">部署<input type="text" id="aDept" list="deptList" placeholder="フロント"></label>
+        <label class="f grow">役職<input type="text" id="aRole" placeholder="一般"></label>
+        <label class="f">入社年月日<input type="date" id="aHire"></label>
+        <label class="f">評価者<select id="aEval" class="evsel"></select></label>
+        <button class="btn primary" id="addBtn">追加</button>
+      </div>
+      <datalist id="deptList"></datalist>
+      <details>
+        <summary>Excelからまとめて貼り付ける</summary>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+          <p class="hint" style="margin:0">「氏名・部署・役職・評価者・入社年月日」の5列をExcelで選択してコピーし、そのまま貼り付けてください（1行1名、タブ区切りまたはカンマ区切り）。入社年月日は「2019/4/1」「2019-04-01」「2019年4月1日」のどれでも読めます。評価者の列には「現場責任者」「執行役」「取締役」のいずれかを入れてください。それ以外は未設定になります。</p>
+          <textarea id="bulk" rows="6" placeholder="佐藤 花子	フロント	主任	現場責任者	2019/4/1"></textarea>
+          <div class="row"><button class="btn primary" id="bulkBtn">まとめて追加</button><span class="hint" id="bulkMsg"></span></div>
+        </div>
+      </details>
+    </div>
+
+    <div class="card" id="mfCard">
+      <div>
+        <h2>マネーフォワード クラウド給与と連携</h2>
+        <p class="hint" style="margin:0">CSVファイルで従業員を取り込み、評価結果を書き出します。従業員番号で突き合わせるので、2回目以降の取り込みでは部門・役職の変更だけが反映され、評価内容は消えません。</p>
+      </div>
+      <div class="split">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <h3>従業員を取り込む</h3>
+          <p class="hint" style="margin:0">クラウド給与の「従業員」画面から従業員一覧をCSVで書き出し、そのファイルを選んでください。Shift_JIS・UTF-8のどちらでも読めます。</p>
+          <input type="file" id="mfFile" accept=".csv,text/csv">
+          <div id="mfMap" hidden style="display:flex;flex-direction:column;gap:10px">
+            <div class="hint" id="mfInfo"></div>
+            <div class="row" id="mfFields"></div>
+            <label class="small"><input type="checkbox" id="mfSkipRetired" checked> 退職日が入っている人は取り込まない</label>
+            <div class="row"><button class="btn primary" id="mfImport">取り込む</button><span class="hint" id="mfMsg"></span></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <h3>評価結果を書き出す</h3>
+          <p class="hint" style="margin:0">従業員番号・評価ランク・平均点・各項目の点・所見をCSV（Excelで開けるUTF-8）で保存します。クラウド給与には評価の取り込み項目がないため、賞与・昇給の計算表で従業員番号をキーに参照する使い方を想定しています。</p>
+          <div class="row"><button class="btn" id="mfExport">評価結果をCSVで保存</button><span class="hint" id="mfExportMsg"></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 評価入力・コメント -->
+  <section class="panel" id="panel-eval" hidden>
+    <div class="card">
+      <div class="row">
+        <label class="f grow">評価する人<select id="pick"></select></label>
+        <label class="f">入社年月日<input type="date" id="eHire"></label>
+        <label class="f">評価者<select id="eEval" class="evsel"></select></label>
+        <label class="f">ステータス<select id="eStatus"></select></label>
+        <button class="btn danger" id="delBtn">この人を削除</button>
+      </div>
+    </div>
+    <div class="split" id="evalArea">
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <h2>評価点</h2>
+          <div class="scoreline"><span class="muted small">平均</span><span class="num" id="eAvg" style="font-size:1.3rem">–</span><span class="rank" id="eRank">–</span></div>
+        </div>
+        <p class="hint" style="margin:0">5 期待を大きく上回る ／ 4 上回る ／ 3 期待どおり ／ 2 やや下回る ／ 1 下回る</p>
+        <div id="critBox"></div>
+      </div>
+      <div class="card">
+        <h2>事実メモ</h2>
+        <p class="hint" style="margin:0">評価の根拠になった出来事を、日付・場面・行動・結果の順で書いておくと、所見の質が上がり評価者間のブレも減ります。</p>
+        <textarea id="eNotes" rows="9" placeholder="例：8月の団体チェックイン（120名）で動線を事前に組み直し、待ち時間を約15分短縮。口コミで名指しの感謝2件。一方、夜勤明けの引継ぎ漏れが2回あった。"></textarea>
+        <div class="hint" id="notesHint"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>評価コメント</h2>
+        <div class="row">
+          <button class="btn" id="aiBtn">AIで下書きを作る</button>
+          <button class="btn" id="aiStop" hidden>中止</button>
+        </div>
+      </div>
+      <div class="hint" id="aiMsg">評価点と事実メモから、所見・面談で伝えるポイント・次期目標の下書きを作ります。氏名はAIに送りません。</div>
+      <label class="f">評価所見（評価シート記入用）<textarea id="eComment" rows="5"></textarea></label>
+      <label class="f">面談で伝えるポイント<textarea id="eFeedback" rows="6"></textarea></label>
+      <label class="f">次期の目標案<textarea id="eGoals" rows="4"></textarea></label>
+      <div class="row" style="justify-content:flex-end">
+        <span class="hint" id="dirtyMsg"></span>
+        <button class="btn primary" id="saveBtn">保存</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 運用チェック -->
+  <section class="panel" id="panel-ops" hidden>
+    <div class="card" id="critCard">
+      <div class="row" style="justify-content:space-between">
+        <h2>評価項目の設定</h2>
+        <button class="btn" id="critCopy">今の項目をExcel用にコピー</button>
+      </div>
+      <p class="hint" style="margin:0">Excelで「項目名・説明・ウェイト」の3列を選んでコピーし、下の欄に貼り付けてください。1行が1項目で、最大10項目まで登録できます。説明とウェイトは省略できます。ウェイトを入れる場合は全項目に入れてください（例：30、30%）。今の項目を一度コピーしてExcelで直し、それを貼り付けると手早く変更できます。</p>
+      <div class="tw"><table>
+        <thead><tr><th>項目名</th><th>説明（評価の観点）</th><th class="n">ウェイト</th></tr></thead>
+        <tbody id="critTable"></tbody>
+      </table></div>
+      <textarea id="critPaste" rows="5" placeholder="接遇・ホスピタリティ	お客様の要望を先回りして応えられるか	30"></textarea>
+      <div class="row"><button class="btn primary" id="critApply" disabled>この項目で確定</button><button class="btn" id="critCancel" hidden>貼り付けを取り消す</button><span class="hint" id="critMsg"></span></div>
+      <textarea id="critCopyArea" rows="4" hidden readonly></textarea>
+    </div>
+    <div class="split">
+      <div class="card">
+        <h2>気になる点</h2>
+        <p class="hint" style="margin:0">入力済みのデータから自動で判定しています。</p>
+        <ul class="issues" id="issues"></ul>
+      </div>
+      <div class="card">
+        <h2>ランク分布と目安</h2>
+        <p class="hint" style="margin:0">金色の線は相対分布の目安（S5%・A20%・B50%・C20%・D5%）。絶対評価の会社でも、大きく外れていないかの確認に使えます。</p>
+        <div class="dist" id="dist"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>評価者別</h2>
+      <div class="tw"><table>
+        <thead><tr><th>評価者</th><th class="n">担当</th><th class="n">一次評価以降</th><th class="n">平均点</th><th class="n">「3」の割合</th><th>傾向</th></tr></thead>
+        <tbody id="evalBody"></tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h2>AIに運用改善を相談</h2>
+        <button class="btn" id="opsAiBtn">今の状況で相談する</button>
+      </div>
+      <div class="hint" id="opsAiMsg">部署・評価者ごとの集計値だけを送ります（個人名・評価コメントは送りません）。</div>
+      <div class="ai-out" id="opsAiOut"></div>
+    </div>
+    <div class="card">
+      <h2>スムーズに回すための進め方</h2>
+      <ol class="steps">
+        <li><b>期初：評価項目と基準をそろえる</b>各項目の「3＝期待どおり」が具体的に何を指すかを部署ごとに一文で決め、評価者に共有します。基準が言葉になっていないと、点数のブレの大半はここで生まれます。</li>
+        <li><b>期中：事実メモを残す</b>月1回、各評価者が担当者ごとに一行でも出来事を記録します。期末にまとめて思い出そうとすると、直近の出来事に評価が引っ張られます。</li>
+        <li><b>自己評価・一次評価：締切を段階で切る</b>面談締切から逆算し、自己評価→一次評価→二次評価をそれぞれ1週間前後で区切ります。シフト勤務の部署は、面談枠を先にシフト表へ組み込んでおくと遅れが出にくくなります。</li>
+        <li><b>二次評価：キャリブレーション会議</b>現場責任者・執行役・取締役が集まり、このページの「部署別」「評価者別」の傾向を見ながら甘め・辛めを調整します。1名あたり2〜3分、根拠は事実メモで説明します。</li>
+        <li><b>面談：結果と次期目標をセットで伝える</b>良かった点→期待との差→次の行動の順で話し、次期目標をその場で合意します。面談が済んだらステータスを「面談済」にします。</li>
+      </ol>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+let CRITERIA = [
+  {k:"guest", label:"接遇・ホスピタリティ", desc:"お客様の要望を先回りして応えられるか。ご不満が出た場面での初動と、その後のフォロー。"},
+  {k:"skill", label:"業務知識・スキル", desc:"担当業務（PMS操作、客室の仕上げ基準、料飲の提供手順、原価管理など）を正確・迅速にこなせるか。"},
+  {k:"team", label:"チームワーク", desc:"シフト間の引継ぎ、他部署との連携、後輩への指導やフォロー。"},
+  {k:"improve", label:"改善・提案", desc:"口コミや現場の気づきを、業務の改善や売上・満足度の向上につなげたか。"},
+  {k:"discipline", label:"規律・勤怠", desc:"身だしなみ、時間厳守、衛生・安全・個人情報の取り扱い基準の遵守。"},
+];
+const STATUSES = ["未着手","自己評価済","一次評価済","二次評価済","面談済"];
+const EVALUATORS = ["現場責任者","執行役","取締役"];
+const RANKS = ["S","A","B","C","D"];
+const GUIDE = {S:.05, A:.20, B:.50, C:.20, D:.05};
+
+// db が空のときだけ表示する見本。保存はされない。
+const SAMPLE = [
+  ["s1","佐藤 美咲","フロント","主任","フロント課長",4,{guest:5,skill:4,team:4,improve:4,discipline:4},"団体チェックインの動線を組み直し、待ち時間を約15分短縮。口コミで名指しの感謝2件。"],
+  ["s2","高橋 健","フロント","一般","フロント課長",2,{guest:3,skill:3,team:3,improve:3,discipline:3},""],
+  ["s3","伊藤 さくら","フロント","一般","フロント課長",1,{},""],
+  ["s4","渡辺 翔","客室","リーダー","客室課長",3,{guest:4,skill:5,team:4,improve:3,discipline:4},"清掃チェックリストを改訂し、インスペクション指摘を月20件→8件に。"],
+  ["s5","山本 結衣","客室","一般","客室課長",2,{guest:4,skill:4,team:5,improve:4,discipline:5},""],
+  ["s6","中村 大輔","客室","一般","客室課長",0,{},""],
+  ["s7","小林 彩","料飲","主任","料飲支配人",2,{guest:5,skill:5,team:5,improve:4,discipline:5},""],
+  ["s8","加藤 拓海","料飲","一般","料飲支配人",2,{guest:4,skill:4,team:5,improve:4,discipline:4},""],
+  ["s9","吉田 奈々","料飲","一般","料飲支配人",1,{},""],
+  ["s10","山田 浩二","調理","副料理長","総料理長",3,{guest:3,skill:4,team:3,improve:4,discipline:3},"朝食ビュッフェの廃棄量を前年比18%削減。"],
+  ["s11","松本 涼","調理","一般","総料理長",0,{},""],
+  ["s12","井上 真由","営業","一般","営業部長",2,{guest:3,skill:2,team:3,improve:2,discipline:3},"法人契約の新規獲得は目標6件に対し2件。"],
+].map(([id,name,dept,role,_,st,scores,notes],i) => ({id,name,dept,role,
+  hireDate: ["2016-04-01","2021-04-01","2025-04-01","2014-10-01","2022-04-01","2024-07-16","2017-04-01","2023-04-01","2025-10-01","2009-04-01","2024-04-01","2020-04-01"][i],
+  evaluator: role === "一般" ? "現場責任者" : role === "副料理長" ? "取締役" : "執行役",
+  status:STATUSES[st],scores,notes,comment:"",feedback:"",goals:"",sample:true}));
+const evName = v => EVALUATORS.includes(v) ? v : "";
+// 入社年月日を YYYY-MM-DD にそろえる（読めなければ空）
+function normDate(s){
+  s = String(s||"").trim().replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  const m = s.match(/^(\d{4})\s*[\/\-.年]\s*(\d{1,2})\s*[\/\-.月]\s*(\d{1,2})\s*日?/);
+  if (!m) return "";
+  const [y,mo,d] = [+m[1],+m[2],+m[3]];
+  const dt = new Date(y, mo-1, d);
+  if (dt.getFullYear()!==y || dt.getMonth()!==mo-1 || dt.getDate()!==d) return "";
+  return `${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+}
+function tenure(hire){
+  if (!hire) return "";
+  const h = new Date(hire+"T00:00:00"), now = new Date();
+  let months = (now.getFullYear()-h.getFullYear())*12 + (now.getMonth()-h.getMonth()) - (now.getDate() < h.getDate() ? 1 : 0);
+  if (months < 0) return "入社前";
+  const y = Math.floor(months/12), m = months%12;
+  return y ? `${y}年${m}ヶ月` : `${m}ヶ月`;
+}
+const fmtDate = d => d ? d.replaceAll("-","/") : "";
+// 評価者ごとのグループ（3区分の順。未設定は最後）
+function evalGroups(){
+  const g = EVALUATORS.map(e => [e, staff.filter(p => p.evaluator === e)]).filter(([,l]) => l.length);
+  const none = staff.filter(p => !EVALUATORS.includes(p.evaluator));
+  if (none.length) g.push(["（未設定）", none]);
+  return g;
+}
+let evTab = "";
+
+let db = null, user = null, sample = null, downloads = null;
+let mode = "loading"; // loading | db | sample | local
+let staff = [];
+let cycle = {name:"", deadline:""};
+let canWrite = true;
+let selectedId = null;
+let draft = null, dirty = false;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const stIdx = s => Math.max(0, STATUSES.indexOf(s));
+
+// ウェイト未設定の項目は1として加重平均
+function avgOf(p){
+  let s = 0, sw = 0;
+  for (const c of CRITERIA){
+    const v = p.scores?.[c.k];
+    if (typeof v !== "number") return null;
+    const w = c.w ?? 1; s += v*w; sw += w;
+  }
+  return sw ? s/sw : null;
+}
+function rankOf(a){
+  if (a == null) return null;
+  return a >= 4.5 ? "S" : a >= 3.8 ? "A" : a >= 2.8 ? "B" : a >= 2.0 ? "C" : "D";
+}
+const fmt = n => n == null ? "–" : n.toFixed(2);
+const pct = (a,b) => b ? Math.round(a/b*100) : 0;
+
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast._t); toast._t = setTimeout(()=> t.hidden = true, 2600);
+}
+
+/* ---------- 集計 ---------- */
+function groupStats(list){
+  const scored = list.filter(p => avgOf(p) != null);
+  const avgs = scored.map(avgOf);
+  const all = scored.flatMap(p => CRITERIA.map(c => p.scores[c.k]));
+  const ranks = Object.fromEntries(RANKS.map(r => [r,0]));
+  scored.forEach(p => ranks[rankOf(avgOf(p))]++);
+  const stages = STATUSES.map(s => list.filter(p => p.status === s).length);
+  return {
+    n:list.length, scoredN:scored.length,
+    avg: avgs.length ? avgs.reduce((a,b)=>a+b,0)/avgs.length : null,
+    threeRate: all.length ? all.filter(x=>x===3).length/all.length : null,
+    allN: all.length, ranks, stages,
+    done: stages[4], firstDone: stages[2]+stages[3]+stages[4],
+  };
+}
+function tendency(g, overall){
+  const out = [];
+  if (g.scoredN >= 3 && overall.avg != null && g.avg != null){
+    const d = g.avg - overall.avg;
+    if (d >= 0.4) out.push(["warn","甘め傾向"]);
+    if (d <= -0.4) out.push(["warn","辛め傾向"]);
+  }
+  if (g.allN >= 15 && g.threeRate >= 0.7) out.push(["warn","中心化傾向"]);
+  return out;
+}
+function groupBy(key){
+  const m = new Map();
+  staff.forEach(p => { const k = p[key] || "（未設定）"; if (!m.has(k)) m.set(k,[]); m.get(k).push(p); });
+  return [...m.entries()].sort((a,b)=>a[0].localeCompare(b[0],"ja"));
+}
+function daysLeft(){
+  if (!cycle.deadline) return null;
+  const d = new Date(cycle.deadline + "T23:59:59");
+  return Math.ceil((d - new Date())/86400000);
+}
+
+/* ---------- 描画 ---------- */
+function stageBar(stages, total){
+  return stages.map((c,i)=> c ? `<span class="st${i}" style="width:${c/total*100}%"></span>` : "").join("");
+}
+function tagHtml(list){ return list.length ? list.map(([k,t])=>`<span class="tag ${k}">${t}</span>`).join(" ") : `<span class="muted small">—</span>`; }
+
+function renderBanner(){
+  const b = $("banner");
+  if (mode === "loading"){ b.hidden = false; b.dataset.kind = "info"; b.textContent = "評価データを読み込んでいます…"; return; }
+  if (mode === "sample"){ b.hidden = false; b.dataset.kind = ""; b.innerHTML = "<b>見本データを表示中です。</b>架空の12名で使い方を示しています。「対象者を追加」で最初の1名を登録すると、見本は消えて実データに切り替わります。"; return; }
+  if (mode === "local"){ b.hidden = false; b.dataset.kind = ""; b.innerHTML = "<b>この画面では保存できません。</b>見本データで操作を試せますが、閉じると消えます。共有されたページをclaude.aiで開くと保存できます。"; return; }
+  if (!canWrite){ b.hidden = false; b.dataset.kind = "info"; b.textContent = "閲覧のみの権限です。入力や保存はできません。"; return; }
+  b.hidden = true;
+}
+
+function renderSummary(){
+  const g = groupStats(staff);
+  const dl = daysLeft();
+  const notStarted = g.stages[0];
+  $("summary").innerHTML = `
+    <div class="tile"><span class="k">対象者</span><span class="v">${g.n}</span><span class="s">${groupBy("dept").length} 部署</span></div>
+    <div class="tile"><span class="k">面談まで完了</span><span class="v">${pct(g.done,g.n)}<small>%</small></span><span class="s">${g.done} / ${g.n} 名</span></div>
+    <div class="tile ${notStarted && dl != null && dl <= 14 ? "alert":""}"><span class="k">未着手</span><span class="v">${notStarted}</span><span class="s">自己評価がまだの人</span></div>
+    <div class="tile ${dl != null && dl < 0 ? "alert":""}"><span class="k">締切まで</span><span class="v">${dl == null ? "–" : dl < 0 ? "超過" : dl}<small>${dl != null && dl >= 0 ? " 日":""}</small></span><span class="s">${cycle.deadline ? cycle.deadline.replaceAll("-","/") : "右上で締切を設定"}</span></div>`;
+  $("pipeline").innerHTML = g.n ? g.stages.map((c,i)=> c ? `<span class="st${i}" style="width:${c/g.n*100}%" title="${STATUSES[i]} ${c}名">${c/g.n > .08 ? STATUSES[i]+" "+c : c}</span>` : "").join("") : "";
+  $("legend").innerHTML = STATUSES.map((s,i)=>`<span><i class="st${i}"></i>${s} <span class="num">${g.stages[i]}</span></span>`).join("");
+}
+
+function renderDept(){
+  const overall = groupStats(staff);
+  const rows = groupBy("dept").map(([dept,list])=>{
+    const g = groupStats(list);
+    const dist = RANKS.map(r => g.ranks[r] ? `<span class="small">${r}<span class="num">${g.ranks[r]}</span></span>` : "").filter(Boolean).join(" ");
+    return `<tr><td><b>${esc(dept)}</b></td><td class="n">${g.n}</td>
+      <td><div class="stagebar">${stageBar(g.stages,g.n)}</div></td>
+      <td class="n">${pct(g.done,g.n)}%</td><td class="n">${fmt(g.avg)}</td>
+      <td>${dist || '<span class="muted small">—</span>'}</td><td>${tagHtml(tendency(g, overall))}</td></tr>`;
+  });
+  $("deptBody").innerHTML = rows.join("") || `<tr><td colspan="7" class="empty">対象者を追加すると、部署ごとの進捗と平均点がここに並びます。</td></tr>`;
+}
+
+function filtered(){
+  const q = $("q").value.trim(), d = $("fDept").value, s = $("fStatus").value;
+  return staff.filter(p => (!q || [p.name,p.empNo].join(" ").includes(q)) && (!d || p.dept === d) && (!s || p.status === s)
+      && (!evTab || (evTab === "none" ? !EVALUATORS.includes(p.evaluator) : p.evaluator === evTab)))
+    .sort((a,b)=> (a.dept||"").localeCompare(b.dept||"","ja") || stIdx(a.status)-stIdx(b.status) || a.name.localeCompare(b.name,"ja"));
+}
+
+function renderList(){
+  const keepSel = (el, opts, label) => { const v = el.value; el.innerHTML = `<option value="">${label}</option>` + opts.map(o=>`<option>${esc(o)}</option>`).join(""); el.value = opts.includes(v) ? v : ""; };
+  const depts = groupBy("dept").map(x=>x[0]);
+  keepSel($("fDept"), depts, "すべて");
+  keepSel($("fStatus"), STATUSES, "すべて");
+  $("deptList").innerHTML = depts.map(d=>`<option value="${esc(d)}">`).join("");
+  const cnt = v => staff.filter(p => v === "" ? true : v === "none" ? !EVALUATORS.includes(p.evaluator) : p.evaluator === v).length;
+  const tabs = [["","すべて"], ...EVALUATORS.map(e=>[e,e]), ...(cnt("none") ? [["none","未設定"]] : [])];
+  if (evTab === "none" && !cnt("none")) evTab = "";
+  $("evTabs").innerHTML = tabs.map(([v,l]) => `<button role="tab" data-ev="${esc(v)}" aria-selected="${evTab===v}">${l} <span class="num">${cnt(v)}</span></button>`).join("");
+  const list = filtered();
+  $("staffBody").innerHTML = list.map(p=>{
+    const a = avgOf(p), r = rankOf(a), i = stIdx(p.status);
+    return `<tr class="click" data-id="${esc(p.id)}" tabindex="0">
+      <td><b>${esc(p.name)}</b> ${p.empNo ? `<span class="muted small num">${esc(p.empNo)}</span>` : ''} ${p.sample ? '<span class="tag sample">見本</span>':''}</td><td>${esc(p.dept)}</td><td>${esc(p.role)}</td>
+      <td class="num">${p.hireDate ? esc(fmtDate(p.hireDate)) : '<span class="muted small">—</span>'}</td><td class="n">${esc(tenure(p.hireDate))}</td>
+      <td>${EVALUATORS.includes(p.evaluator) ? esc(p.evaluator) : '<span class="tag warn">未設定</span>'}</td>
+      <td><span class="chip st${i}">${esc(p.status)}</span></td><td class="n">${fmt(a)}</td>
+      <td>${r ? `<span class="rank ${r}">${r}</span>` : '<span class="muted small">—</span>'}</td>
+      <td>${p.comment ? '<span class="tag ok">記入済</span>' : '<span class="muted small">未記入</span>'}</td></tr>`;
+  }).join("") || `<tr><td colspan="10" class="empty">${staff.length ? "条件に合う人がいません。" : "まだ対象者がいません。下の「対象者を追加」から登録してください。"}</td></tr>`;
+}
+
+function renderPicker(){
+  const sel = $("pick");
+  const list = [...staff].sort((a,b)=> (a.dept||"").localeCompare(b.dept||"","ja") || a.name.localeCompare(b.name,"ja"));
+  sel.innerHTML = list.map(p=>`<option value="${esc(p.id)}">${esc(p.dept)}｜${esc(p.name)}（${esc(p.status)}）</option>`).join("");
+  if (!staff.some(p=>p.id===selectedId)) selectedId = list[0]?.id ?? null;
+  sel.value = selectedId ?? "";
+}
+
+function loadDraft(){
+  const p = staff.find(x=>x.id===selectedId);
+  draft = p ? JSON.parse(JSON.stringify(p)) : null;
+  dirty = false;
+  renderEval();
+}
+
+function renderEval(){
+  const has = !!draft;
+  $("evalArea").hidden = !has;
+  ["eStatus","delBtn","aiBtn","saveBtn","eComment","eFeedback","eGoals","eNotes","eEval","eHire"].forEach(id => $(id).disabled = !has || !canWrite);
+  if (!has){ $("critBox").innerHTML = ""; $("dirtyMsg").textContent = staff.length ? "" : "対象者を追加すると評価を入力できます。"; return; }
+  $("eStatus").innerHTML = STATUSES.map(s=>`<option>${s}</option>`).join("");
+  $("eStatus").value = draft.status;
+  $("critBox").innerHTML = CRITERIA.map(c=>`
+    <div class="crit"><b>${c.label}</b>
+      <div class="seg" role="radiogroup" aria-label="${c.label}">
+        ${[1,2,3,4,5].map(v=>`<input type="radio" name="sc-${c.k}" id="sc-${c.k}-${v}" value="${v}" ${draft.scores?.[c.k]===v?"checked":""} ${canWrite?"":"disabled"}><label for="sc-${c.k}-${v}">${v}</label>`).join("")}
+      </div>
+      <div class="d">${c.desc}</div></div>`).join("");
+  $("eEval").value = evName(draft.evaluator);
+  $("eHire").value = draft.hireDate || "";
+  $("eNotes").value = draft.notes || "";
+  $("eComment").value = draft.comment || "";
+  $("eFeedback").value = draft.feedback || "";
+  $("eGoals").value = draft.goals || "";
+  renderScore(); renderNotesHint(); renderDirty();
+}
+function renderScore(){
+  const a = avgOf(draft), r = rankOf(a);
+  $("eAvg").textContent = fmt(a);
+  $("eRank").textContent = r || "–";
+  $("eRank").className = "rank " + (r||"");
+}
+function renderNotesHint(){
+  const n = ($("eNotes").value||"").trim().length;
+  const extreme = CRITERIA.some(c => [1,5].includes(draft?.scores?.[c.k]));
+  const h = $("notesHint");
+  if (extreme && n < 40){ h.className = "hint warn"; h.textContent = "5や1をつけた項目があります。根拠となる出来事を書いておくと、二次評価や面談で説明しやすくなります。"; }
+  else { h.className = "hint"; h.textContent = n ? `${n} 文字` : ""; }
+}
+function renderDirty(){ $("dirtyMsg").textContent = dirty ? "未保存の変更があります" : ""; }
+
+function renderOps(){
+  const overall = groupStats(staff);
+  const issues = [];
+  const dl = daysLeft();
+  if (dl != null){
+    const remain = overall.n - overall.done;
+    if (dl < 0 && remain) issues.push(["crit","締切超過",`締切を${-dl}日過ぎています。面談未完了が${remain}名います。`]);
+    else if (dl <= 14 && overall.stages[0]) issues.push(["crit","未着手あり",`締切まで${dl}日ですが、自己評価が未着手の人が${overall.stages[0]}名います。対象者と評価者へ個別に声をかけてください。`]);
+  } else issues.push(["warn","締切未設定","右上で面談完了の締切を設定すると、遅れの判定ができます。"]);
+  const unset = staff.filter(p => !EVALUATORS.includes(p.evaluator)).length;
+  if (unset) issues.push(["warn","評価者未設定",`${unset}名は評価者が決まっていません。「評価入力・コメント」で現場責任者・執行役・取締役から選んでください。`]);
+  evalGroups().forEach(([ev,list])=>{
+    if (ev === "（未設定）") return;
+    const g = groupStats(list);
+    const lag = g.n - g.firstDone;
+    if (g.n >= 3 && lag/g.n >= 0.6 && overall.firstDone/Math.max(1,overall.n) >= 0.3) issues.push(["warn","一次評価の遅れ",`${ev}：担当${g.n}名中${lag}名の一次評価が終わっていません。`]);
+    tendency(g, overall).forEach(([,t])=> issues.push(["warn",t,`${ev}：平均${fmt(g.avg)}（全体${fmt(overall.avg)}）、「3」の割合${g.threeRate==null?"–":Math.round(g.threeRate*100)+"%"}。キャリブレーション会議で根拠を確認してください。`]));
+  });
+  groupBy("dept").forEach(([d,list])=>{
+    const g = groupStats(list);
+    tendency(g, overall).filter(([,t])=>t!=="中心化傾向").forEach(([,t])=> issues.push(["warn",`${t}（部署）`,`${d}：平均${fmt(g.avg)}（全体${fmt(overall.avg)}）。部署の実績差なのか基準差なのかを確認してください。`]));
+  });
+  const missingNotes = staff.filter(p => avgOf(p)!=null && !(p.notes||"").trim()).length;
+  if (missingNotes) issues.push(["warn","根拠メモなし",`採点済みのうち${missingNotes}名は事実メモが空です。面談で根拠を聞かれたときに説明しづらくなります。`]);
+  if (!issues.length && overall.n) issues.push(["ok","問題なし","目立った偏りや遅れは見つかりませんでした。"]);
+  $("issues").innerHTML = issues.map(([k,t,d])=>`<li><span class="tag ${k}">${esc(t)}</span><span>${esc(d)}</span></li>`).join("") || `<li><span class="tag ok">—</span><span class="muted">対象者を追加すると判定が始まります。</span></li>`;
+
+  const tot = overall.scoredN;
+  $("dist").innerHTML = RANKS.map(r=>{
+    const c = overall.ranks[r], share = tot ? c/tot : 0;
+    return `<div class="r"><span class="rank ${r}">${r}</span>
+      <div class="track"><div class="bar" style="width:${share*100}%"></div><span class="guide" style="left:calc(${GUIDE[r]*100}% - 1px)" title="目安 ${GUIDE[r]*100}%"></span></div>
+      <span class="num small">${c}名 ${tot?Math.round(share*100):0}%</span></div>`;
+  }).join("") + `<span class="hint">採点済み ${tot} 名が対象</span>`;
+
+  $("evalBody").innerHTML = evalGroups().map(([ev,list])=>{
+    const g = groupStats(list);
+    return `<tr><td><b>${esc(ev)}</b></td><td class="n">${g.n}</td><td class="n">${g.firstDone} / ${g.n}</td><td class="n">${fmt(g.avg)}</td>
+      <td class="n">${g.threeRate==null?"–":Math.round(g.threeRate*100)+"%"}</td><td>${tagHtml(tendency(g, overall))}</td></tr>`;
+  }).join("") || `<tr><td colspan="6" class="empty">評価者ごとの進み具合と点のつけ方の傾向がここに並びます。</td></tr>`;
+}
+
+function renderAll(){
+  renderBanner(); renderSummary(); renderDept(); renderList(); renderPicker(); renderOps(); renderCritTable();
+  $("addCard").hidden = !canWrite;
+  $("mfImport").disabled = !canWrite; $("mfFile").disabled = !canWrite;
+  if (document.activeElement !== $("cycleName")) $("cycleName").value = cycle.name || "";
+  if (document.activeElement !== $("cycleDeadline")) $("cycleDeadline").value = cycle.deadline || "";
+  $("cycleName").disabled = $("cycleDeadline").disabled = !canWrite;
+  if (!dirty) loadDraft();
+}
+
+/* ---------- 保存 ---------- */
+function bodyOf(p){
+  const {id, sample:_s, ...rest} = p;
+  return {...rest, updatedAt: new Date().toISOString()};
+}
+async function savePerson(p){
+  if (mode === "db"){
+    await db.doc("staff/"+p.id).set(bodyOf(p));
+  } else {
+    const i = staff.findIndex(x=>x.id===p.id);
+    if (i >= 0) staff[i] = p;
+    renderAll();
+  }
+}
+function explain(e){
+  if (e?.code === "quota_exceeded") return "保存できる件数の上限に達しました。不要な対象者を削除してください。";
+  if (e?.code === "invalid_argument") { canWrite = false; renderAll(); return "このページへの書き込み権限がありません。"; }
+  return "保存できませんでした。通信状況を確認して、もう一度お試しください。";
+}
+async function addPeople(rows){
+  const clean = rows.filter(r => r.name);
+  if (!clean.length) return 0;
+  const fresh = r => ({empNo:r.empNo||"", name:r.name, dept:r.dept||"", role:r.role||"", evaluator:evName(r.evaluator), hireDate:normDate(r.hireDate), status:STATUSES[0], scores:{}, notes:"", comment:"", feedback:"", goals:""});
+  if (mode === "sample" || mode === "db"){
+    for (const r of clean){
+      await db.collection("staff").add({...fresh(r), updatedAt:new Date().toISOString()});
+    }
+  } else {
+    clean.forEach(r => staff.push({id:"l"+Math.random().toString(36).slice(2,9), ...fresh(r)}));
+    renderAll();
+  }
+  return clean.length;
+}
+
+/* ---------- イベント ---------- */
+document.querySelectorAll("nav.tabs button").forEach(b => b.addEventListener("click", ()=> showTab(b.dataset.tab)));
+function showTab(t){
+  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab===t)));
+  ["progress","eval","ops"].forEach(x => $("panel-"+x).hidden = x !== t);
+  try { localStorage.setItem("hyoka-tab", t); } catch(e) {}
+}
+try { const t = localStorage.getItem("hyoka-tab"); if (t) showTab(t); } catch(e) {}
+
+["q","fDept","fStatus"].forEach(id => $(id).addEventListener("input", renderList));
+$("staffBody").addEventListener("click", e => openRow(e.target.closest("tr[data-id]")));
+$("staffBody").addEventListener("keydown", e => { if (e.key === "Enter") openRow(e.target.closest("tr[data-id]")); });
+function openRow(tr){
+  if (!tr) return;
+  if (dirty && draft?.id !== tr.dataset.id){ toast("未保存の変更があります。保存してから移動してください。"); showTab("eval"); return; }
+  selectedId = tr.dataset.id; $("pick").value = selectedId; loadDraft(); showTab("eval");
+}
+
+$("pick").addEventListener("change", e => {
+  if (dirty){ e.target.value = selectedId; toast("未保存の変更があります。保存してから切り替えてください。"); return; }
+  selectedId = e.target.value; loadDraft();
+});
+$("critBox").addEventListener("change", e => {
+  if (!draft || e.target.type !== "radio") return;
+  draft.scores = {...(draft.scores||{}), [e.target.name.slice(3)]: Number(e.target.value)};
+  dirty = true; renderScore(); renderNotesHint(); renderDirty();
+});
+$("eStatus").addEventListener("change", e => { draft.status = e.target.value; dirty = true; renderDirty(); });
+$("eEval").addEventListener("change", e => { if (!draft) return; draft.evaluator = e.target.value; dirty = true; renderDirty(); });
+$("eHire").addEventListener("change", e => { if (!draft) return; draft.hireDate = e.target.value; dirty = true; renderDirty(); });
+document.querySelectorAll(".evsel").forEach(s => s.innerHTML = `<option value="">（未設定）</option>` + EVALUATORS.map(e=>`<option>${e}</option>`).join(""));
+$("evTabs").addEventListener("click", e => { const b = e.target.closest("button[data-ev]"); if (!b) return; evTab = b.dataset.ev; renderList(); });
+[["eNotes","notes"],["eComment","comment"],["eFeedback","feedback"],["eGoals","goals"]].forEach(([id,k]) =>
+  $(id).addEventListener("input", e => { draft[k] = e.target.value; dirty = true; renderDirty(); if (id==="eNotes") renderNotesHint(); }));
+
+$("saveBtn").addEventListener("click", async ()=>{
+  if (!draft) return;
+  $("saveBtn").disabled = true;
+  try {
+    await savePerson(draft);
+    dirty = false; renderDirty();
+    toast(draft.sample ? "見本データは保存されません（画面上だけ反映）" : "保存しました");
+  } catch(e){ toast(explain(e)); }
+  finally { $("saveBtn").disabled = !canWrite; }
+});
+
+let delArmed = false;
+$("delBtn").addEventListener("click", async ()=>{
+  if (!draft) return;
+  if (!delArmed){ delArmed = true; $("delBtn").textContent = "本当に削除する"; setTimeout(()=>{ delArmed=false; $("delBtn").textContent="この人を削除"; }, 4000); return; }
+  delArmed = false; $("delBtn").textContent = "この人を削除";
+  const id = draft.id, name = draft.name;
+  dirty = false;
+  try {
+    if (mode === "db") await db.doc("staff/"+id).delete();
+    else { staff = staff.filter(p=>p.id!==id); renderAll(); }
+    toast(`${name} さんを削除しました`);
+  } catch(e){ toast(explain(e)); }
+});
+
+$("addBtn").addEventListener("click", async ()=>{
+  const r = {name:$("aName").value.trim(), dept:$("aDept").value.trim(), role:$("aRole").value.trim(), evaluator:$("aEval").value, hireDate:$("aHire").value};
+  if (!r.name){ toast("氏名を入力してください"); $("aName").focus(); return; }
+  $("addBtn").disabled = true;
+  try { await addPeople([r]); $("aName").value = ""; $("aRole").value = ""; $("aHire").value = ""; toast(`${r.name} さんを追加しました`); $("aName").focus(); }
+  catch(e){ toast(explain(e)); }
+  finally { $("addBtn").disabled = false; }
+});
+
+$("bulkBtn").addEventListener("click", async ()=>{
+  const rows = $("bulk").value.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+    .map(l => l.split(l.includes("\t") ? "\t" : ",").map(s=>s.trim()))
+    .filter(c => c[0] && c[0] !== "氏名")
+    .map(([name,dept,role,evaluator,hireDate]) => ({name,dept,role,evaluator,hireDate}));
+  const badDates = rows.filter(r => r.hireDate && !normDate(r.hireDate)).length;
+  if (!rows.length){ $("bulkMsg").textContent = "貼り付けた内容から氏名を読み取れませんでした。"; return; }
+  if (rows.length > 500){ $("bulkMsg").textContent = "一度に追加できるのは500名までです。"; return; }
+  $("bulkBtn").disabled = true; $("bulkMsg").textContent = `${rows.length}名を追加しています…`;
+  try { const n = await addPeople(rows); $("bulk").value = ""; $("bulkMsg").textContent = `${n}名を追加しました。` + (badDates ? `入社年月日を読み取れなかった${badDates}名は空欄にしました。` : ""); }
+  catch(e){ $("bulkMsg").textContent = explain(e); }
+  finally { $("bulkBtn").disabled = false; }
+});
+
+$("copyBtn").addEventListener("click", async ()=>{
+  const head = ["従業員番号","氏名","部署","役職","入社年月日","勤続","評価者","ステータス",...CRITERIA.map(c=>c.label),"平均","ランク","評価所見"];
+  const lines = filtered().map(p => [p.empNo||"",p.name,p.dept,p.role,fmtDate(p.hireDate),tenure(p.hireDate),evName(p.evaluator),p.status,...CRITERIA.map(c=>p.scores?.[c.k] ?? ""),avgOf(p)?.toFixed(2) ?? "",rankOf(avgOf(p)) ?? "",(p.comment||"").replace(/\s+/g," ")].join("\t"));
+  const tsv = [head.join("\t"), ...lines].join("\n");
+  try { await navigator.clipboard.writeText(tsv); toast("コピーしました。Excelに貼り付けできます"); $("copyArea").hidden = true; }
+  catch(e){ const a = $("copyArea"); a.value = tsv; a.hidden = false; a.focus(); a.select(); toast("自動コピーできませんでした。選択された表をCtrl+Cでコピーしてください"); }
+});
+
+async function saveCycle(){
+  cycle = {name:$("cycleName").value.trim(), deadline:$("cycleDeadline").value};
+  renderSummary(); renderOps();
+  if (mode === "db" || mode === "sample"){
+    try { await db.doc("settings/cycle").set(cycle); } catch(e){ toast(explain(e)); }
+  }
+}
+$("cycleName").addEventListener("change", saveCycle);
+$("cycleDeadline").addEventListener("change", saveCycle);
+
+/* ---------- 評価項目の設定 ---------- */
+let critPending = null;
+function parseWeight(s){
+  s = String(s||"").replace(/[％%\s]/g,"").replace(/[０-９．]/g, c => String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  if (!s) return null;
+  const n = Number(s);
+  return isFinite(n) && n > 0 ? n : NaN;
+}
+function parseCriteria(text){
+  const lines = text.split(/\r?\n/).map(l=>l.replace(/\s+$/,"")).filter(l=>l.trim());
+  const rows = lines.map(l => l.split(l.includes("\t") ? "\t" : ",").map(s=>s.trim()))
+    .filter(c => c[0] && c[0] !== "項目名");
+  if (!rows.length) return {error:"貼り付けた内容から項目名を読み取れませんでした。"};
+  if (rows.length > 10) return {error:`項目は10個までです（${rows.length}個あります）。`};
+  const names = rows.map(r=>r[0]);
+  const dup = names.find((n,i)=>names.indexOf(n)!==i);
+  if (dup) return {error:`「${dup}」が重複しています。`};
+  const ws = rows.map(r=>parseWeight(r[2]));
+  if (ws.some(w=>Number.isNaN(w))) return {error:"ウェイトは0より大きい数字で入れてください。"};
+  const some = ws.some(w=>w!=null), all = ws.every(w=>w!=null);
+  if (some && !all) return {error:"ウェイトは全項目に入れるか、全項目空欄にしてください。"};
+  const used = new Set();
+  const items = rows.map((r,i)=>{
+    const old = CRITERIA.find(c=>c.label===r[0]);
+    let k = old?.k;
+    if (!k || used.has(k)) k = "c" + Math.random().toString(36).slice(2,8);
+    used.add(k);
+    const it = {k, label:r[0], desc:r[1]||""};
+    if (all) it.w = ws[i];
+    return it;
+  });
+  return {items};
+}
+function renderCritTable(){
+  const list = critPending || CRITERIA;
+  const sw = list.reduce((a,c)=>a+(c.w ?? 0),0);
+  $("critTable").innerHTML = list.map(c=>`<tr><td><b>${esc(c.label)}</b>${critPending && !CRITERIA.some(o=>o.k===c.k) ? ' <span class="tag warn">新規</span>':''}</td>
+    <td style="white-space:normal;min-width:16em">${esc(c.desc) || '<span class="muted small">—</span>'}</td>
+    <td class="n">${c.w != null ? `${c.w}（${Math.round(c.w/sw*100)}%）` : "均等"}</td></tr>`).join("");
+  $("critApply").disabled = !critPending || !canWrite;
+  $("critCancel").hidden = !critPending;
+  $("critPaste").disabled = !canWrite;
+}
+$("critPaste").addEventListener("input", ()=>{
+  const t = $("critPaste").value;
+  if (!t.trim()){ critPending = null; $("critMsg").textContent = ""; renderCritTable(); return; }
+  const r = parseCriteria(t);
+  if (r.error){ critPending = null; $("critMsg").className = "hint warn"; $("critMsg").textContent = r.error; renderCritTable(); return; }
+  critPending = r.items;
+  const added = critPending.filter(c=>!CRITERIA.some(o=>o.k===c.k)).length;
+  const removed = CRITERIA.filter(o=>!critPending.some(c=>c.k===o.k)).length;
+  const affected = added ? staff.filter(p=>avgOf(p)!=null).length : 0;
+  $("critMsg").className = affected ? "hint warn" : "hint";
+  $("critMsg").textContent = `変更後のプレビューです（${critPending.length}項目／追加${added}・削除${removed}）。` +
+    (affected ? `新しい項目は、採点済みの${affected}名も未採点の扱いになります。` : "") +
+    (removed ? "削除した項目の点は残りますが、集計には使いません。" : "");
+  renderCritTable();
+});
+$("critCancel").addEventListener("click", ()=>{ $("critPaste").value = ""; critPending = null; $("critMsg").textContent = ""; renderCritTable(); });
+$("critApply").addEventListener("click", async ()=>{
+  if (!critPending) return;
+  if (dirty){ toast("評価入力に未保存の変更があります。保存してから確定してください。"); return; }
+  $("critApply").disabled = true;
+  try {
+    if (mode === "db" || mode === "sample") await db.doc("settings/criteria").set({items:critPending, updatedAt:new Date().toISOString()});
+    else { CRITERIA = critPending; }
+    critPending = null; $("critPaste").value = ""; $("critMsg").className = "hint"; $("critMsg").textContent = "評価項目を更新しました。";
+    renderAll();
+  } catch(e){ $("critMsg").textContent = explain(e); renderCritTable(); }
+});
+$("critCopy").addEventListener("click", async ()=>{
+  const tsv = ["項目名\t説明\tウェイト", ...CRITERIA.map(c=>[c.label, c.desc||"", c.w ?? ""].join("\t"))].join("\n");
+  try { await navigator.clipboard.writeText(tsv); toast("コピーしました。Excelに貼り付けて編集できます"); $("critCopyArea").hidden = true; }
+  catch(e){ const a = $("critCopyArea"); a.value = tsv; a.hidden = false; a.focus(); a.select(); toast("自動コピーできませんでした。選択された内容をCtrl+Cでコピーしてください"); }
+});
+
+/* ---------- マネーフォワード クラウド給与 CSV ---------- */
+const MF_FIELDS = [
+  {k:"empNo", label:"従業員番号", cand:["従業員番号","従業員コード","社員番号","社員コード","従業員No"]},
+  {k:"name",  label:"氏名", cand:["氏名","従業員名","名前","氏名（漢字）"]},
+  {k:"last",  label:"姓（氏名がない場合）", cand:["姓","氏名（姓）","氏名(姓)","姓（漢字）"]},
+  {k:"first", label:"名（氏名がない場合）", cand:["名","氏名（名）","氏名(名)","名（漢字）"]},
+  {k:"dept",  label:"部門", cand:["部門","部門名","所属部門","部署","所属"]},
+  {k:"role",  label:"役職", cand:["役職","役職名"]},
+  {k:"hireDate", label:"入社年月日", cand:["入社年月日","入社日","入社年月"]},
+  {k:"retired", label:"退職日", cand:["退職日","退職年月日"]},
+];
+let mfRows = null, mfHead = [];
+
+function parseCSV(text){
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){
+      if (c === '"'){ if (text[i+1] === '"'){ f += '"'; i++; } else q = false; }
+      else f += c;
+    } else if (c === '"') q = true;
+    else if (c === ","){ row.push(f); f = ""; }
+    else if (c === "\n" || c === "\r"){
+      if (c === "\r" && text[i+1] === "\n") i++;
+      row.push(f); f = ""; if (row.some(x=>x.trim())) rows.push(row); row = [];
+    } else f += c;
+  }
+  row.push(f); if (row.some(x=>x.trim())) rows.push(row);
+  return rows;
+}
+function decodeCSV(buf){
+  try { return new TextDecoder("utf-8", {fatal:true}).decode(buf).replace(/^﻿/,""); }
+  catch(e){ return new TextDecoder("shift_jis").decode(buf); }
+}
+function guessCol(cand){
+  const h = mfHead.map(x=>x.trim());
+  let i = h.findIndex(x => cand.includes(x));
+  if (i < 0) i = h.findIndex(x => cand.some(c => c.length > 1 && x.includes(c)));
+  return i;
+}
+$("mfFile").addEventListener("change", async e => {
+  const file = e.target.files[0]; if (!file) return;
+  const rows = parseCSV(decodeCSV(await file.arrayBuffer()));
+  if (rows.length < 2){ $("mfMap").hidden = false; $("mfInfo").textContent = "データ行が見つかりませんでした。1行目が項目名のCSVを選んでください。"; $("mfFields").innerHTML = ""; return; }
+  mfHead = rows[0]; mfRows = rows.slice(1);
+  $("mfInfo").textContent = `${file.name}：${mfRows.length}行。列の対応を確認してから取り込んでください。`;
+  $("mfFields").innerHTML = MF_FIELDS.map(f => {
+    const g = guessCol(f.cand);
+    return `<label class="f grow">${f.label}<select id="mf-${f.k}"><option value="-1">（使わない）</option>${mfHead.map((h,i)=>`<option value="${i}" ${i===g?"selected":""}>${esc(h)}</option>`).join("")}</select></label>`;
+  }).join("");
+  $("mfMap").hidden = false; $("mfMsg").textContent = "";
+});
+$("mfImport").addEventListener("click", async ()=>{
+  if (!mfRows) return;
+  const col = Object.fromEntries(MF_FIELDS.map(f => [f.k, Number($("mf-"+f.k).value)]));
+  const get = (r,k) => col[k] >= 0 ? (r[col[k]] ?? "").trim() : "";
+  if (col.name < 0 && col.last < 0){ $("mfMsg").textContent = "「氏名」か「姓」の列を選んでください。"; return; }
+  const skip = $("mfSkipRetired").checked;
+  const people = mfRows
+    .filter(r => !(skip && get(r,"retired")))
+    .map(r => ({empNo:get(r,"empNo"), name:get(r,"name") || [get(r,"last"),get(r,"first")].filter(Boolean).join(" "), dept:get(r,"dept"), role:get(r,"role"), hireDate:normDate(get(r,"hireDate"))}))
+    .filter(p => p.name);
+  if (people.length > 500){ $("mfMsg").textContent = "一度に取り込めるのは500名までです。部門ごとに分けて書き出してください。"; return; }
+  const existing = new Map(mode === "sample" ? [] : staff.filter(p=>p.empNo).map(p => [p.empNo, p]));
+  const toAdd = [], toUpd = [];
+  people.forEach(p => {
+    const cur = p.empNo && existing.get(p.empNo);
+    if (!cur) toAdd.push(p);
+    else if (cur.name !== p.name || cur.dept !== p.dept || cur.role !== p.role || (p.hireDate && cur.hireDate !== p.hireDate))
+      toUpd.push({...cur, name:p.name, dept:p.dept, role:p.role, hireDate:p.hireDate || cur.hireDate || ""});
+  });
+  $("mfImport").disabled = true; $("mfMsg").textContent = "取り込んでいます…";
+  try {
+    await addPeople(toAdd);
+    for (const p of toUpd) await savePerson(p);
+    $("mfMsg").textContent = `新規 ${toAdd.length}名・更新 ${toUpd.length}名・変更なし ${people.length-toAdd.length-toUpd.length}名。評価者は一覧から各自設定してください。`;
+    mfRows = null; $("mfFile").value = ""; $("mfMap").hidden = true;
+    toast(`${toAdd.length + toUpd.length}名を反映しました`);
+  } catch(e){ $("mfMsg").textContent = explain(e); }
+  finally { $("mfImport").disabled = false; }
+});
+
+const csvCell = v => { const s = String(v ?? ""); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+$("mfExport").addEventListener("click", async ()=>{
+  const head = ["従業員番号","氏名","部門","役職","入社年月日","評価期間","評価者","ステータス",...CRITERIA.map(c=>c.label),"平均点","評価ランク","評価所見","次期目標"];
+  const list = [...staff].sort((a,b)=> String(a.empNo||"").localeCompare(String(b.empNo||""),"ja",{numeric:true}));
+  const body = list.map(p => [p.empNo,p.name,p.dept,p.role,fmtDate(p.hireDate),cycle.name,evName(p.evaluator),p.status,...CRITERIA.map(c=>p.scores?.[c.k] ?? ""),avgOf(p)?.toFixed(2) ?? "",rankOf(avgOf(p)) ?? "",p.comment,p.goals].map(csvCell).join(","));
+  const csv = "﻿" + [head.join(","), ...body].join("\r\n");
+  const filename = `人事評価_${(cycle.name || new Date().toISOString().slice(0,10)).replace(/[\\/:*?"<>|\s]+/g,"_")}.csv`;
+  const noNo = list.filter(p=>!p.empNo).length;
+  const note = noNo ? `（従業員番号のない人が${noNo}名います）` : "";
+  try {
+    if (downloads){ await downloads.save({filename, data:csv}); }
+    else {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv"})); a.download = filename;
+      document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+    }
+    $("mfExportMsg").textContent = `${list.length}名分を保存しました${note}`;
+  } catch(e){
+    $("mfExportMsg").textContent = e?.code === "declined" ? "保存を取りやめました。" : "保存できませんでした。もう一度お試しください。";
+  }
+});
+
+/* ---------- AI ---------- */
+function sampleErr(e){
+  switch (e?.code){
+    case "not_granted": case "sampling_disabled": case "not_declared": case "capability_disabled": case "capability_removed":
+      return "このページではAIを使えません。";
+    case "rate_limited": return "AIの利用が混み合っています。少し時間をおいてお試しください。";
+    case "refused": return "この内容では下書きを作れませんでした。メモの書き方を変えてお試しください。";
+    case "invalid_json": return "下書きをうまく受け取れませんでした。もう一度お試しください。";
+    case "cancelled": return "中止しました。";
+    default: return "AIに接続できませんでした。もう一度お試しください。";
+  }
+}
+let aiCtl = null;
+$("aiStop").addEventListener("click", ()=> aiCtl?.abort());
+$("aiBtn").addEventListener("click", async ()=>{
+  if (!draft || !sample) return;
+  const scored = CRITERIA.filter(c => typeof draft.scores?.[c.k] === "number");
+  if (scored.length < CRITERIA.length){ $("aiMsg").textContent = `${CRITERIA.length}項目すべてを採点してから下書きを作ってください。`; return; }
+  const a = avgOf(draft);
+  const prompt = `あなたはホテル会社の人事評価をサポートするアシスタントです。以下の評価点と事実メモから、評価者が使うコメントの下書きを日本語で作ってください。
+
+# 対象者
+部署：${draft.dept || "不明"}／役職：${draft.role || "不明"}
+評価期間：${cycle.name || "今期"}
+
+# 評価点（5段階：5期待を大きく上回る・4上回る・3期待どおり・2やや下回る・1下回る）
+${CRITERIA.map(c=>`- ${c.label}：${draft.scores[c.k]}${c.desc ? `（観点：${c.desc}）` : ""}${c.w != null ? `［ウェイト${c.w}］` : ""}`).join("\n")}
+${CRITERIA.some(c=>c.w != null) ? "加重平均" : "平均"} ${a.toFixed(2)}／総合ランク ${rankOf(a)}
+
+# 評価者の事実メモ
+${(draft.notes||"").trim() || "（記載なし）"}
+
+# 書き方のルール
+- 事実メモにない出来事や数字を作らない。メモが少ない項目は、観点に沿った一般的な表現にとどめ、具体例が必要な箇所は【要記入：○○】と書く。
+- 点数と矛盾する表現をしない（3は「期待どおり」であり、欠点ではない）。
+- 人柄ではなく行動と結果について書く。否定語を重ねない。
+- comment：評価シートに書く所見。だ・である調で150〜250字。
+- feedback：面談で本人に伝えるポイント。です・ます調の箇条書き3〜5行（「・」始まり）。良かった点→期待との差→次の行動の順。
+- goals：次期の目標案を2〜3個。それぞれ具体的な行動と、測れる目安（数値や期限）を含める。「・」始まりの箇条書き。
+
+次のJSONだけを返してください：{"comment":"...","feedback":"...","goals":"..."}`;
+  aiCtl = new AbortController();
+  $("aiBtn").disabled = true; $("aiStop").hidden = false;
+  $("aiMsg").textContent = "下書きを作っています…（30秒ほどかかることがあります）";
+  try {
+    const r = await sample.json(prompt, {signal: aiCtl.signal, cache:false});
+    const had = (draft.comment||draft.feedback||draft.goals||"").trim();
+    ["comment","feedback","goals"].forEach(k => { if (typeof r?.[k] === "string") draft[k] = r[k]; });
+    $("eComment").value = draft.comment || ""; $("eFeedback").value = draft.feedback || ""; $("eGoals").value = draft.goals || "";
+    dirty = true; renderDirty();
+    $("aiMsg").textContent = (had ? "以前の内容を下書きで置き換えました。" : "下書きを入れました。") + "【要記入】の箇所を埋め、内容を確認してから保存してください。";
+  } catch(e){ $("aiMsg").textContent = sampleErr(e); }
+  finally { $("aiBtn").disabled = !canWrite; $("aiStop").hidden = true; aiCtl = null; }
+});
+
+$("opsAiBtn").addEventListener("click", async ()=>{
+  if (!sample) return;
+  const overall = groupStats(staff);
+  const line = (label, g) => `${label}：${g.n}名／${STATUSES.map((s,i)=>s+g.stages[i]).join("・")}／平均${fmt(g.avg)}／「3」の割合${g.threeRate==null?"–":Math.round(g.threeRate*100)+"%"}／ランク S${g.ranks.S} A${g.ranks.A} B${g.ranks.B} C${g.ranks.C} D${g.ranks.D}`;
+  const evs = evalGroups().map(([ev,list])=> line(ev, groupStats(list)));
+  const dl = daysLeft();
+  const prompt = `ホテル会社の人事担当者から、今期の人事評価を滞りなく公平に進めるための相談です。以下の集計を見て、具体的な改善策を日本語で提案してください。
+
+評価期間：${cycle.name || "未設定"}／面談完了の締切まで：${dl==null ? "未設定" : dl+"日"}
+${line("全体", overall)}
+
+# 部署別
+${groupBy("dept").map(([d,list])=> line(d, groupStats(list))).join("\n")}
+
+# 評価者区分別（現場責任者・執行役・取締役のどれが担当しているか）
+${evs.join("\n")}
+
+# 出力
+- 見出し「今すぐやること」「キャリブレーションで確認すること」「次の評価期間に向けて」の3つに分け、それぞれ2〜4項目の箇条書き。
+- 数字に触れるときは上の集計値を根拠として示す。集計にないことは推測と明記する。
+- ホテル特有の事情（シフト勤務、繁忙期、部署ごとの業務の違い）を踏まえる。
+- 全体で600字以内。Markdownの記号（#や**）は使わず、見出しは【】で囲む。`;
+  $("opsAiBtn").disabled = true; $("opsAiMsg").textContent = "考えています…"; $("opsAiOut").textContent = "";
+  try {
+    await sample(prompt, {cache:false, onText: ({text}) => { $("opsAiOut").textContent = text; $("opsAiMsg").textContent = ""; }});
+  } catch(e){ $("opsAiOut").textContent = e?.text ?? ""; $("opsAiMsg").textContent = sampleErr(e); }
+  finally { $("opsAiBtn").disabled = false; }
+});
+
+/* ---------- 起動 ---------- */
+renderAll();
+(async ()=>{
+  const c = window.claude;
+  [db, user, sample, downloads] = c ? await Promise.all([c.use("db"), c.use("user"), c.use("sample"), c.use("downloads")]) : [null,null,null,null];
+  if (!sample){ ["aiBtn","opsAiBtn"].forEach(id => $(id).hidden = true); $("aiMsg").textContent = "このビューではAI下書きを使えません。"; $("opsAiMsg").textContent = "このビューではAI相談を使えません。"; }
+  if (user){ try { const w = await user.can("data.write"); if (w === false) canWrite = false; } catch(e){} }
+  if (!db){ mode = "local"; staff = SAMPLE.map(p=>({...p, sample:false})); renderAll(); return; }
+  db.doc("settings/criteria").onSnapshot(s => {
+    const items = s.exists ? s.data().items : null;
+    if (Array.isArray(items) && items.length && items.every(c => c && typeof c.k === "string" && typeof c.label === "string")){
+      CRITERIA = items.map(c => ({k:c.k, label:c.label, desc:c.desc||"", ...(typeof c.w === "number" ? {w:c.w} : {})}));
+      if (!dirty) renderAll(); else { renderSummary(); renderDept(); renderList(); renderOps(); renderCritTable(); }
+    }
+  }, ()=>{});
+  db.doc("settings/cycle").onSnapshot(s => { if (s.exists){ const d = s.data(); cycle = {name:d.name||"", deadline:d.deadline||""}; renderAll(); } }, ()=>{});
+  db.collection("staff").onSnapshot(snap => {
+    const real = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    if (real.length){ mode = "db"; staff = real; }
+    else { mode = "sample"; staff = SAMPLE.map(p=>({...p})); }
+    if (dirty && !staff.some(p=>p.id===draft?.id)) dirty = false;
+    renderAll();
+  }, () => { mode = "local"; staff = SAMPLE.map(p=>({...p, sample:false})); renderAll(); });
+})();
+</script>
+</body></html>
