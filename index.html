@@ -118,6 +118,8 @@ tr.click:hover td{background:var(--accent-soft)}
 .crit{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 16px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .crit:last-child{border-bottom:0}
 .crit .d{grid-column:1/-1;font-size:.8rem;color:var(--muted)}
+.crit textarea{grid-column:1/-1;margin-top:4px}
+.crit .hint{grid-column:1/-1}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .seg input{position:absolute;opacity:0;pointer-events:none}
 .seg label{width:38px;text-align:center;padding:4px 0;cursor:pointer;font-family:var(--mono);border-left:1px solid var(--line)}
@@ -263,20 +265,15 @@ details summary{cursor:pointer;color:var(--accent);font-weight:500}
         <button class="btn danger" id="delBtn">この人を削除</button>
       </div>
     </div>
-    <div class="split" id="evalArea">
+    <div id="evalArea">
       <div class="card">
         <div class="row" style="justify-content:space-between">
-          <h2>評価点</h2>
+          <h2>評価点と事実メモ</h2>
           <div class="scoreline"><span class="muted small">平均</span><span class="num" id="eAvg" style="font-size:1.3rem">–</span><span class="rank" id="eRank">–</span></div>
         </div>
-        <p class="hint" style="margin:0">5 期待を大きく上回る ／ 4 上回る ／ 3 期待どおり ／ 2 やや下回る ／ 1 下回る</p>
+        <p class="hint" style="margin:0">5 期待を大きく上回る ／ 4 上回る ／ 3 期待どおり ／ 2 やや下回る ／ 1 下回る<br>各項目の事実メモには、その点数の根拠になった出来事を「いつ・どの場面で・何をして・どうなったか」の順で書いてください。所見の質が上がり、評価者間のブレも減ります。</p>
         <div id="critBox"></div>
-      </div>
-      <div class="card">
-        <h2>事実メモ</h2>
-        <p class="hint" style="margin:0">評価の根拠になった出来事を、日付・場面・行動・結果の順で書いておくと、所見の質が上がり評価者間のブレも減ります。</p>
-        <textarea id="eNotes" rows="9" placeholder="例：8月の団体チェックイン（120名）で動線を事前に組み直し、待ち時間を約15分短縮。口コミで名指しの感謝2件。一方、夜勤明けの引継ぎ漏れが2回あった。"></textarea>
-        <div class="hint" id="notesHint"></div>
+        <label class="f">その他・全体のメモ（任意）<textarea id="eNotes" rows="3" placeholder="特定の項目に入らない出来事や、期中の配置転換・休職などの事情"></textarea></label>
       </div>
     </div>
     <div class="card">
@@ -385,7 +382,8 @@ const SAMPLE = [
 ].map(([id,name,dept,role,_,st,scores,notes],i) => ({id,name,dept,role,
   hireDate: ["2016-04-01","2021-04-01","2025-04-01","2014-10-01","2022-04-01","2024-07-16","2017-04-01","2023-04-01","2025-10-01","2009-04-01","2024-04-01","2020-04-01"][i],
   evaluator: role === "一般" ? "現場責任者" : role === "副料理長" ? "取締役" : "執行役",
-  status:STATUSES[st],scores,notes,comment:"",feedback:"",goals:"",sample:true}));
+  critNotes: notes ? {[({s1:"guest",s4:"skill",s10:"improve",s12:"skill"})[id]]: notes} : {},
+  status:STATUSES[st],scores,notes:"",comment:"",feedback:"",goals:"",sample:true}));
 const evName = v => EVALUATORS.includes(v) ? v : "";
 // 入社年月日を YYYY-MM-DD にそろえる（読めなければ空）
 function normDate(s){
@@ -584,7 +582,9 @@ function renderEval(){
       <div class="seg" role="radiogroup" aria-label="${c.label}">
         ${[1,2,3,4,5].map(v=>`<input type="radio" name="sc-${c.k}" id="sc-${c.k}-${v}" value="${v}" ${draft.scores?.[c.k]===v?"checked":""} ${canWrite?"":"disabled"}><label for="sc-${c.k}-${v}">${v}</label>`).join("")}
       </div>
-      <div class="d">${c.desc}</div></div>`).join("");
+      <div class="d">${esc(c.desc)}</div>
+      <textarea id="cn-${c.k}" data-k="${c.k}" rows="2" aria-label="${esc(c.label)}の事実メモ" placeholder="${esc(c.label)}の根拠となる出来事" ${canWrite?"":"disabled"}>${esc(draft.critNotes?.[c.k] || "")}</textarea>
+      <div class="hint" id="cnh-${c.k}"></div></div>`).join("");
   $("eEval").value = evName(draft.evaluator);
   $("eHire").value = draft.hireDate || "";
   $("eNotes").value = draft.notes || "";
@@ -599,13 +599,18 @@ function renderScore(){
   $("eRank").textContent = r || "–";
   $("eRank").className = "rank " + (r||"");
 }
+// 5や1をつけたのにメモが短い項目に注意を出す
 function renderNotesHint(){
-  const n = ($("eNotes").value||"").trim().length;
-  const extreme = CRITERIA.some(c => [1,5].includes(draft?.scores?.[c.k]));
-  const h = $("notesHint");
-  if (extreme && n < 40){ h.className = "hint warn"; h.textContent = "5や1をつけた項目があります。根拠となる出来事を書いておくと、二次評価や面談で説明しやすくなります。"; }
-  else { h.className = "hint"; h.textContent = n ? `${n} 文字` : ""; }
+  if (!draft) return;
+  CRITERIA.forEach(c => {
+    const h = $("cnh-"+c.k); if (!h) return;
+    const n = (draft.critNotes?.[c.k] || "").trim().length;
+    const s = draft.scores?.[c.k];
+    if ([1,5].includes(s) && n < 20){ h.className = "hint warn"; h.textContent = `「${s}」をつけています。根拠となる出来事を書いておくと、二次評価や面談で説明しやすくなります。`; }
+    else { h.className = "hint"; h.textContent = ""; }
+  });
 }
+const hasMemo = p => !!(p.notes||"").trim() || Object.values(p.critNotes||{}).some(v => String(v).trim());
 function renderDirty(){ $("dirtyMsg").textContent = dirty ? "未保存の変更があります" : ""; }
 
 function renderOps(){
@@ -630,7 +635,7 @@ function renderOps(){
     const g = groupStats(list);
     tendency(g, overall).filter(([,t])=>t!=="中心化傾向").forEach(([,t])=> issues.push(["warn",`${t}（部署）`,`${d}：平均${fmt(g.avg)}（全体${fmt(overall.avg)}）。部署の実績差なのか基準差なのかを確認してください。`]));
   });
-  const missingNotes = staff.filter(p => avgOf(p)!=null && !(p.notes||"").trim()).length;
+  const missingNotes = staff.filter(p => avgOf(p)!=null && !hasMemo(p)).length;
   if (missingNotes) issues.push(["warn","根拠メモなし",`採点済みのうち${missingNotes}名は事実メモが空です。面談で根拠を聞かれたときに説明しづらくなります。`]);
   if (!issues.length && overall.n) issues.push(["ok","問題なし","目立った偏りや遅れは見つかりませんでした。"]);
   $("issues").innerHTML = issues.map(([k,t,d])=>`<li><span class="tag ${k}">${esc(t)}</span><span>${esc(d)}</span></li>`).join("") || `<li><span class="tag ok">—</span><span class="muted">対象者を追加すると判定が始まります。</span></li>`;
@@ -682,7 +687,7 @@ function explain(e){
 async function addPeople(rows){
   const clean = rows.filter(r => r.name);
   if (!clean.length) return 0;
-  const fresh = r => ({empNo:r.empNo||"", name:r.name, dept:r.dept||"", role:r.role||"", evaluator:evName(r.evaluator), hireDate:normDate(r.hireDate), status:STATUSES[0], scores:{}, notes:"", comment:"", feedback:"", goals:""});
+  const fresh = r => ({empNo:r.empNo||"", name:r.name, dept:r.dept||"", role:r.role||"", evaluator:evName(r.evaluator), hireDate:normDate(r.hireDate), status:STATUSES[0], scores:{}, critNotes:{}, notes:"", comment:"", feedback:"", goals:""});
   if (mode === "sample" || mode === "db"){
     for (const r of clean){
       await db.collection("staff").add({...fresh(r), updatedAt:new Date().toISOString()});
@@ -716,6 +721,11 @@ $("pick").addEventListener("change", e => {
   if (dirty){ e.target.value = selectedId; toast("未保存の変更があります。保存してから切り替えてください。"); return; }
   selectedId = e.target.value; loadDraft();
 });
+$("critBox").addEventListener("input", e => {
+  if (!draft || e.target.tagName !== "TEXTAREA") return;
+  draft.critNotes = {...(draft.critNotes||{}), [e.target.dataset.k]: e.target.value};
+  dirty = true; renderNotesHint(); renderDirty();
+});
 $("critBox").addEventListener("change", e => {
   if (!draft || e.target.type !== "radio") return;
   draft.scores = {...(draft.scores||{}), [e.target.name.slice(3)]: Number(e.target.value)};
@@ -727,7 +737,7 @@ $("eHire").addEventListener("change", e => { if (!draft) return; draft.hireDate 
 document.querySelectorAll(".evsel").forEach(s => s.innerHTML = `<option value="">（未設定）</option>` + EVALUATORS.map(e=>`<option>${e}</option>`).join(""));
 $("evTabs").addEventListener("click", e => { const b = e.target.closest("button[data-ev]"); if (!b) return; evTab = b.dataset.ev; renderList(); });
 [["eNotes","notes"],["eComment","comment"],["eFeedback","feedback"],["eGoals","goals"]].forEach(([id,k]) =>
-  $(id).addEventListener("input", e => { draft[k] = e.target.value; dirty = true; renderDirty(); if (id==="eNotes") renderNotesHint(); }));
+  $(id).addEventListener("input", e => { draft[k] = e.target.value; dirty = true; renderDirty(); }));
 
 $("saveBtn").addEventListener("click", async ()=>{
   if (!draft) return;
@@ -1004,8 +1014,9 @@ $("aiBtn").addEventListener("click", async ()=>{
 ${CRITERIA.map(c=>`- ${c.label}：${draft.scores[c.k]}${c.desc ? `（観点：${c.desc}）` : ""}${c.w != null ? `［ウェイト${c.w}］` : ""}`).join("\n")}
 ${CRITERIA.some(c=>c.w != null) ? "加重平均" : "平均"} ${a.toFixed(2)}／総合ランク ${rankOf(a)}
 
-# 評価者の事実メモ
-${(draft.notes||"").trim() || "（記載なし）"}
+# 評価者の事実メモ（項目ごと）
+${CRITERIA.map(c=>`- ${c.label}：${(draft.critNotes?.[c.k]||"").trim() || "（記載なし）"}`).join("\n")}
+- その他・全体：${(draft.notes||"").trim() || "（記載なし）"}
 
 # 書き方のルール
 - 事実メモにない出来事や数字を作らない。メモが少ない項目は、観点に沿った一般的な表現にとどめ、具体例が必要な箇所は【要記入：○○】と書く。
